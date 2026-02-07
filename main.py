@@ -385,8 +385,8 @@ class Equipment(Resource):
 # ====================== API Routes ======================
 api.add_resource(Users, "/api/users/")
 api.add_resource(User, "/api/users/<int:id>")
-api.add_resource(Equipments, "/api/equipment/")
-api.add_resource(Equipment, "/api/equipment/<int:id>")
+api.add_resource(Equipments, "/api/equipments/")
+api.add_resource(Equipment, "/api/equipments/<int:id>")
 
 @app.route("/")
 def home():
