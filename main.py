@@ -160,9 +160,9 @@ class Equipment(Resource):
         db.session.commit()
         return {"message": "Equipment deleted"}, 200
 
-api.add_resource(Users, "/api/users/")
+api.add_resource(Users, "/api/users")
 api.add_resource(User, "/api/users/<int:id>")
-api.add_resource(Equipments, "/api/equipments/")
+api.add_resource(Equipments, "/api/equipments")
 api.add_resource(Equipment, "/api/equipments/<int:id>")
 
 @app.route("/")
