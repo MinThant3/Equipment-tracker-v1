@@ -21,7 +21,7 @@ DBNAME = os.getenv("dbname")
 
 app = Flask(__name__)
 
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = (
     f"postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}"
