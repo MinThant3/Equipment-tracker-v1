@@ -1,6 +1,6 @@
 from functools import wraps
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
@@ -8,7 +8,6 @@ from flask_jwt_extended import (
     get_jwt_identity,
     jwt_required,
 )
-from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from auth_models import (
     AuthUser,
@@ -19,8 +18,6 @@ from extensions import db, jwt
 
 
 auth_bp = Blueprint("auth", __name__)
-PASSWORD_RESET_TOKEN_SALT = "password-reset"
-PASSWORD_RESET_TOKEN_MAX_AGE_SECONDS = 3600
 
 
 def normalize_text(value):
@@ -60,18 +57,6 @@ def get_login_credentials():
     return email, password, None
 
 
-def get_forgot_password_email():
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return None, error_response("Request body must be valid JSON", 400, "invalid_payload")
-
-    email = normalize_email(data.get("email"))
-    if email is None:
-        return None, error_response("Email is required", 400, "email_required")
-
-    return email, None
-
-
 def get_admin_creation_payload():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
@@ -91,22 +76,6 @@ def get_admin_creation_payload():
     return username, email, password, None
 
 
-def get_reset_password_payload():
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return None, None, error_response("Request body must be valid JSON", 400, "invalid_payload")
-
-    token = normalize_text(data.get("token"))
-    new_password = data.get("new_password")
-
-    if token is None:
-        return None, None, error_response("Reset token is required", 400, "token_required")
-    if not isinstance(new_password, str) or not new_password.strip():
-        return None, None, error_response("New password is required", 400, "new_password_required")
-
-    return token, new_password, None
-
-
 def get_change_password_payload():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
@@ -121,35 +90,6 @@ def get_change_password_payload():
         return None, None, error_response("New password is required", 400, "new_password_required")
 
     return current_password, new_password, None
-
-
-def get_password_reset_serializer():
-    return URLSafeTimedSerializer(current_app.config["JWT_SECRET_KEY"])
-
-
-def build_password_reset_token(user_id):
-    serializer = get_password_reset_serializer()
-    return serializer.dumps({"user_id": user_id}, salt=PASSWORD_RESET_TOKEN_SALT)
-
-
-def load_password_reset_token(token):
-    serializer = get_password_reset_serializer()
-    try:
-        payload = serializer.loads(
-            token,
-            salt=PASSWORD_RESET_TOKEN_SALT,
-            max_age=PASSWORD_RESET_TOKEN_MAX_AGE_SECONDS,
-        )
-    except SignatureExpired:
-        return None, error_response("Reset token has expired", 401, "token_expired")
-    except BadSignature:
-        return None, error_response("Reset token is invalid", 401, "invalid_token")
-
-    user_id = payload.get("user_id")
-    if not user_id:
-        return None, error_response("Reset token is invalid", 401, "invalid_token")
-
-    return user_id, None
 
 
 def super_admin_required(view):
@@ -230,23 +170,6 @@ def create_admin():
     )
 
 
-@auth_bp.post("/forgot-password")
-def forgot_password():
-    email, validation_error = get_forgot_password_email()
-    if validation_error:
-        return validation_error
-
-    user = AuthUser.get_by_email(email)
-    response_payload = {
-        "message": "If an account with that email exists, a password reset token has been generated."
-    }
-
-    if user is not None:
-        response_payload["reset_token"] = build_password_reset_token(user.id)
-
-    return jsonify(response_payload), 200
-
-
 @auth_bp.post("/login")
 def login():
     email, password, validation_error = get_login_credentials()
@@ -270,28 +193,6 @@ def login():
         ),
         200,
     )
-
-
-@auth_bp.post("/reset-password")
-def reset_password():
-    token, new_password, validation_error = get_reset_password_payload()
-    if validation_error:
-        return validation_error
-
-    user_id, token_error = load_password_reset_token(token)
-    if token_error:
-        return token_error
-
-    user = db.session.get(AuthUser, user_id)
-    if user is None:
-        return error_response("Authenticated user no longer exists", 404, "user_not_found")
-
-    user.set_password(new_password)
-    db.session.commit()
-
-    return jsonify({"message": "Password reset successfully"}), 200
-
-
 @auth_bp.get("/whoami")
 @jwt_required()
 def whoami():

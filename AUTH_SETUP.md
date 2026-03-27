@@ -68,24 +68,3 @@ Logged-in users can change their own password through `POST /api/auth/change-pas
   "new_password": "new-password"
 }
 ```
-
-Forgot password is handled in two steps:
-
-1. Request a reset token with `POST /api/auth/forgot-password`
-
-```json
-{
-  "email": "admin@example.com"
-}
-```
-
-2. Use that token with `POST /api/auth/reset-password`
-
-```json
-{
-  "token": "reset-token-from-forgot-password",
-  "new_password": "new-password"
-}
-```
-
-For now, the reset token is returned directly by the backend so you can test the flow and wire email delivery later.
